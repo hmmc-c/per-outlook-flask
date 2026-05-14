@@ -9,4 +9,7 @@ env/
 .DS_Store
 instance/
 saved_searches.json
+outlook_index.sqlite3
+outlook_index.sqlite3-wal
+outlook_index.sqlite3-shm
 *.log

@@ -51,6 +51,10 @@
     selectedResults: new Set(),
     savedSearches: [],
     activeSavedId: "",
+    indexJobs: {},        // folder_id -> {state, progress, total, ...}
+    indexFolders: {},     // folder_id -> {message_count, last_indexed_at, ...}
+    totalIndexed: 0,
+    statusPollHandle: null,
   };
 
   // ---------- helpers ----------
@@ -157,14 +161,63 @@
           },
           "data-folder-id": folder.id,
         }),
-        el("span", {}, folder.name),
+        el("span", { class: "folder-name" }, folder.name),
         el("span", { class: "folder-count" }, String(folder.count)),
+        renderIndexBadge(folder.id),
       ]);
       list.appendChild(row);
     }
     if (!list.children.length) {
       list.appendChild(el("div", { class: "muted" }, "No folders match."));
     }
+    renderIndexSummary();
+  }
+
+  function renderIndexBadge(folderId) {
+    const job = state.indexJobs[folderId];
+    if (job && (job.state === "running" || job.state === "queued")) {
+      const pct = job.total ? Math.floor((job.progress / job.total) * 100) : 0;
+      const label = job.state === "queued"
+        ? "queued…"
+        : `indexing ${pct}% (${job.progress || 0}/${job.total || 0})`;
+      return el("span", { class: "index-badge running" }, label);
+    }
+    if (job && job.state === "error") {
+      return el("span", { class: "index-badge error", title: job.error || "" }, "index error");
+    }
+    const meta = state.indexFolders[folderId];
+    if (meta && meta.last_indexed_at) {
+      return el(
+        "span",
+        { class: "index-badge ok", title: meta.last_indexed_at },
+        `indexed ${meta.message_count || 0} · ${relativeTime(meta.last_indexed_at)}`
+      );
+    }
+    return el("span", { class: "index-badge none" }, "not indexed");
+  }
+
+  function renderIndexSummary() {
+    const summary = document.getElementById("index-summary");
+    const running = Object.values(state.indexJobs).filter(
+      (j) => j.state === "running" || j.state === "queued"
+    ).length;
+    const parts = [`${state.totalIndexed} msg(s) indexed`];
+    if (running) parts.push(`${running} folder(s) indexing…`);
+    summary.textContent = parts.join(" · ");
+  }
+
+  function relativeTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
   }
 
   function renderTargetFolder() {
@@ -178,6 +231,52 @@
       );
     }
     if (previous) select.value = previous;
+  }
+
+  // ---------- indexing ----------
+
+  async function refreshIndexStatus() {
+    try {
+      const data = await api("/api/index/status");
+      state.indexJobs = data.jobs || {};
+      state.indexFolders = Object.fromEntries(
+        (data.folders || []).map((f) => [f.id, f])
+      );
+      state.totalIndexed = data.total_messages || 0;
+      renderFolderList();
+      maybeStartPolling();
+    } catch (err) {
+      console.error("Index status failed", err);
+    }
+  }
+
+  function maybeStartPolling() {
+    const anyActive = Object.values(state.indexJobs).some(
+      (j) => j.state === "running" || j.state === "queued"
+    );
+    if (anyActive && !state.statusPollHandle) {
+      state.statusPollHandle = setInterval(refreshIndexStatus, 1500);
+    } else if (!anyActive && state.statusPollHandle) {
+      clearInterval(state.statusPollHandle);
+      state.statusPollHandle = null;
+    }
+  }
+
+  async function indexSelected() {
+    const ids = Array.from(state.selectedFolders);
+    if (!ids.length) {
+      alert("Select at least one folder to index.");
+      return;
+    }
+    try {
+      await api("/api/index", {
+        method: "POST",
+        body: JSON.stringify({ folders: ids }),
+      });
+      refreshIndexStatus();
+    } catch (err) {
+      alert(`Indexing failed: ${err.message}`);
+    }
   }
 
   // ---------- query builder ----------
@@ -575,6 +674,7 @@
       renderFolderList();
     });
     document.getElementById("folders-refresh").addEventListener("click", loadFolders);
+    document.getElementById("index-selected").addEventListener("click", indexSelected);
     document.getElementById("run-search").addEventListener("click", runSearch);
     document.getElementById("move-selected").addEventListener("click", moveSelected);
     document.getElementById("move-all").addEventListener("click", moveAll);
@@ -598,7 +698,7 @@
 
     renderQuery();
     checkStatus();
-    loadFolders();
+    loadFolders().then(refreshIndexStatus);
     loadSavedSearches();
   }
 

@@ -82,11 +82,23 @@ body {
   gap: 6px;
   padding: 2px 0;
 }
+.folder-row .folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .folder-row .folder-count {
   color: #718096;
   font-size: 11px;
-  margin-left: auto;
 }
+.index-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #4a5568;
+  white-space: nowrap;
+}
+.index-badge.ok { background: #d1fae5; color: #065f46; }
+.index-badge.running { background: #fef3c7; color: #92400e; }
+.index-badge.error { background: #fee2e2; color: #991b1b; }
+.index-badge.none { background: #edf2f7; color: #718096; }
 .folder-store {
   font-weight: 600;
   margin-top: 8px;

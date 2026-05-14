@@ -57,7 +57,7 @@ def com(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
-def _get_namespace():
+def get_namespace():
     app = win32com.client.Dispatch("Outlook.Application")
     return app.GetNamespace("MAPI")
 
@@ -67,7 +67,7 @@ def _folder_key(folder) -> str:
     return f"{folder.EntryID}|{folder.StoreID}"
 
 
-def _resolve_folder(ns, key: str):
+def resolve_folder(ns, key: str):
     entry_id, store_id = key.split("|", 1)
     return ns.GetFolderFromID(entry_id, store_id)
 
@@ -85,7 +85,7 @@ def list_folders() -> list[dict[str, Any]]:
     Each entry has ``id``, ``name``, ``path`` (Outlook ``FolderPath``), ``store``,
     and ``depth`` for tree rendering in the UI.
     """
-    ns = _get_namespace()
+    ns = get_namespace()
     result: list[dict[str, Any]] = []
 
     def walk(folder, depth: int, store_name: str) -> None:
@@ -165,7 +165,7 @@ def _recipients(item) -> list[dict[str, str]]:
     return out
 
 
-def _message_snapshot(item, folder_id: str, folder_path: str) -> dict[str, Any]:
+def message_snapshot(item, folder_id: str, folder_path: str) -> dict[str, Any]:
     """Materialise the subset of fields the search/UI needs."""
     headers = _headers_for(item)
     has_list_header = bool(_LIST_HEADER_RE.search(headers))
@@ -262,17 +262,17 @@ def fetch_messages(
     per_folder_limit: int = 500,
 ) -> list[dict[str, Any]]:
     """Pull message snapshots from each selected folder."""
-    ns = _get_namespace()
+    ns = get_namespace()
     snapshots: list[dict[str, Any]] = []
     for fid in folder_ids:
         try:
-            folder = _resolve_folder(ns, fid)
+            folder = resolve_folder(ns, fid)
         except Exception:  # noqa: BLE001
             continue
         folder_path = folder.FolderPath
         for item in _iter_folder_items(folder, since, per_folder_limit):
             try:
-                snapshots.append(_message_snapshot(item, fid, folder_path))
+                snapshots.append(message_snapshot(item, fid, folder_path))
             except Exception:  # noqa: BLE001
                 # Skip messages we can't read (corrupted, encrypted, etc.).
                 continue
@@ -282,8 +282,8 @@ def fetch_messages(
 
 def move_messages(message_ids: Iterable[str], target_folder_id: str) -> dict[str, Any]:
     """Move each ``EntryID|StoreID`` to ``target_folder_id``."""
-    ns = _get_namespace()
-    target = _resolve_folder(ns, target_folder_id)
+    ns = get_namespace()
+    target = resolve_folder(ns, target_folder_id)
     moved: list[str] = []
     errors: list[dict[str, str]] = []
     for mid in message_ids:
