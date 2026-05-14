@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Outlook Search &amp; Move</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Outlook Search &amp; Move</div>
+    <div class="saved-controls">
+      <select id="saved-search-select">
+        <option value="">— Saved searches —</option>
+      </select>
+      <button id="load-saved" type="button">Load</button>
+      <button id="save-as" type="button">Save as…</button>
+      <button id="update-saved" type="button" disabled>Update</button>
+      <button id="delete-saved" type="button" disabled>Delete</button>
+    </div>
+    <div id="status-pill" class="status-pill">Checking Outlook…</div>
+  </header>
+
+  <main class="layout">
+    <aside class="folders-pane">
+      <h2>Folders to search</h2>
+      <div class="folder-toolbar">
+        <input id="folder-filter" type="search" placeholder="Filter folders…" />
+        <button id="folders-clear" type="button">Clear</button>
+        <button id="folders-refresh" type="button">Refresh</button>
+      </div>
+      <div id="folder-list" class="folder-list">Loading…</div>
+    </aside>
+
+    <section class="builder-pane">
+      <div class="builder-header">
+        <h2>Search</h2>
+        <div class="builder-options">
+          <label>Since
+            <input type="date" id="since-input" />
+          </label>
+          <label>Per-folder limit
+            <input type="number" id="per-folder-limit" value="500" min="1" max="10000" />
+          </label>
+          <button id="run-search" type="button" class="primary">Run search</button>
+        </div>
+      </div>
+      <div id="query-root"></div>
+
+      <div class="results-header">
+        <h2>Results <span id="results-count" class="muted"></span></h2>
+        <div class="move-controls">
+          <label>Move to
+            <select id="target-folder"><option value="">— pick a folder —</option></select>
+          </label>
+          <button id="move-selected" type="button">Move selected</button>
+          <button id="move-all" type="button">Move all matched</button>
+        </div>
+      </div>
+      <div id="results-status" class="muted"></div>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all" /></th>
+            <th>From</th>
+            <th>Subject</th>
+            <th>Folder</th>
+            <th>Received</th>
+            <th>Flags</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <dialog id="save-dialog">
+    <form method="dialog" id="save-form">
+      <h3 id="save-title">Save search</h3>
+      <label>Name
+        <input name="name" id="save-name" required />
+      </label>
+      <p class="muted">The current folders, query, since-date, limit, and the
+      currently selected target folder are saved together so you can re-run
+      the whole thing later.</p>
+      <menu>
+        <button value="cancel">Cancel</button>
+        <button value="save" id="save-confirm" class="primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script id="field-kinds" type="application/json">{{ field_kinds | tojson }}</script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
